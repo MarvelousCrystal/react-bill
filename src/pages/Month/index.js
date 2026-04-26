@@ -1,11 +1,11 @@
 import { NavBar, DatePicker } from 'antd-mobile'
 import './index.scss'
-import {useMemo, useState} from "react";
+import {useEffect, useMemo, useState} from "react";
 import classNames from "classnames";
 import dayjs from "dayjs";
 import {useSelector} from "react-redux";
 import _ from 'lodash'
-
+import DailyBill from "@/pages/Month/components/DayBill";
 const Month = () => {
     //按月做数据分组 先拿到所有数据
     const billList = useSelector(state=> state.bill.billList)
@@ -21,11 +21,39 @@ const Month = () => {
     const [currentDate, setCurrentDate] = useState(()=>{
         return dayjs(new Date()).format('YYYY-MM')
     })
+    const [currentMonthList, setCurrentMonthList] = useState([])
+    const monthResult = useMemo(() => {
+        const pay = currentMonthList.filter(item => item.type === 'pay').reduce((a, c) => a + c.money, 0)
+        const income = currentMonthList.filter(item => item.type === 'income').reduce((a, c) => a + c.money, 0)
+        return {
+            pay,
+            income,
+            total: pay + income
+        }
+    }, [currentMonthList]);
+    //初始化的时候把当前月的统计数据显示出来
+    useEffect(() => {
+        const nowDate =dayjs().format('YYYY-MM')
+        if(monthGroup[nowDate]){
+            setCurrentMonthList(monthGroup[nowDate])
+        }
+    }, [monthGroup]);
     const onConfirm = (date) => {
         setDateVisible(false)
         const formatDate = dayjs( date).format('YYYY-MM')
+        setCurrentMonthList(monthGroup[formatDate] || [])
         setCurrentDate(formatDate)
     }
+    //当前月再按照日分组
+    const dayGroup = useMemo(() => {
+        const groupData =  _.groupBy(currentMonthList, (item) => dayjs(item.date).format('YYYY-MM-DD'))
+        const keys = Object.keys(groupData)
+        return {
+            groupData,
+            keys
+        }
+    }, [currentMonthList])
+
     return (
         <div className="monthlyBill">
             <NavBar className="nav" backArrow={false}>
@@ -44,15 +72,15 @@ const Month = () => {
                     {/* 统计区域 */}
                     <div className='twoLineOverview'>
                         <div className="item">
-                            <span className="money">{100}</span>
+                            <span className="money">{monthResult.pay.toFixed(2)}</span>
                             <span className="type">支出</span>
                         </div>
                         <div className="item">
-                            <span className="money">{200}</span>
+                            <span className="money">{monthResult.income.toFixed(2)}</span>
                             <span className="type">收入</span>
                         </div>
                         <div className="item">
-                            <span className="money">{200}</span>
+                            <span className="money">{monthResult.total.toFixed(2)}</span>
                             <span className="type">结余</span>
                         </div>
                     </div>
@@ -69,6 +97,13 @@ const Month = () => {
                         max={new Date()}
                     />
                 </div>
+                {/*单日列表统计*/}
+                {
+                    dayGroup.keys.map(key=>{
+                        return <DailyBill key = {key} date = {key} billList = {dayGroup.groupData[key]}/>
+                    })
+                }
+
             </div>
         </div >
     )
